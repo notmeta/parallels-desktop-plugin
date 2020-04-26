@@ -28,9 +28,12 @@ import hudson.Extension;
 import hudson.model.Describable;
 import hudson.model.Descriptor;
 import hudson.slaves.ComputerLauncher;
+import hudson.slaves.RetentionStrategy;
 import hudson.util.ListBoxModel;
 import java.lang.reflect.Field;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Date;
 import java.util.logging.Level;
 import jenkins.model.Jenkins;
@@ -65,17 +68,20 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	private transient boolean provisioned = false;
 	private PostBuildBehaviors postBuildBehavior;
 	private transient VMStates prevVmState;
+	private RetentionStrategy<?> retentionStrategy;
 	
 	private String parentVmid;
 	private boolean isLinkedClone;
 	
 	@DataBoundConstructor
-	public ParallelsDesktopVM(String vmid, String labels, String remoteFS, ComputerLauncher launcher, String postBuildBehavior)
+	public ParallelsDesktopVM(String vmid, String labels, String remoteFS, ComputerLauncher launcher,
+		String postBuildBehavior, RetentionStrategy<?> retentionStrategy)
 	{
 		this.vmid = vmid;
 		this.labels = labels;
 		this.remoteFS = remoteFS;
 		this.launcher = launcher;
+		this.retentionStrategy = retentionStrategy;
 		try
 		{
 			this.postBuildBehavior = PostBuildBehaviors.valueOf(postBuildBehavior);
@@ -87,6 +93,7 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 		if (this.postBuildBehavior == null)
 			this.postBuildBehavior = PostBuildBehaviors.Suspend;
 		prevVmState = VMStates.Suspended;
+		// readResolve();
 	}
 	
 	public ParallelsDesktopVM createLinkedClone()
@@ -104,7 +111,7 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	{
 		return vmid;
 	}
-	
+
 	public String getLabels()
 	{
 		return labels;
@@ -149,7 +156,7 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	{
 		return provisioned;
 	}
-	
+
 	public String getPostBuildBehavior()
 	{
 		if (postBuildBehavior == null)
@@ -161,7 +168,18 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	{
 		return postBuildBehavior;
 	}
-	
+
+	public RetentionStrategy<?> getRetentionStrategy() {
+        return this.retentionStrategy;
+    }
+
+	protected Object readResolve() {
+		if (this.retentionStrategy == null) {
+			this.retentionStrategy = new ParallelsDesktopCloudRetentionStrategy();
+		}
+		return this;
+	}
+
 	public static VMStates parseVMState(String state)
 	{
 		if ("stopped".equals(state))
@@ -276,5 +294,12 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 			m.add(Messages.Parallels_Behavior_ReturnPrevState(), PostBuildBehaviors.ReturnPrevState.name());
 			return m;
 		}
+
+		public static List<Descriptor<RetentionStrategy<?>>> getRetentionStrategyDescriptors() {
+            final List<Descriptor<RetentionStrategy<?>>> result = new ArrayList<>();
+			result.add(ParallelsDesktopCloudRetentionStrategy.DESCRIPTOR);
+			result.add(ParallelsRunOnceCloudRetentionStrategy.DESCRIPTOR);
+            return result;
+        }
 	}
 }
