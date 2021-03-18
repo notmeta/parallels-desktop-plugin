@@ -32,14 +32,21 @@ import hudson.model.Node;
 import hudson.slaves.Cloud;
 import hudson.slaves.ComputerLauncher;
 import hudson.slaves.NodeProvisioner;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.logging.Level;
+
+import hudson.util.FormValidation;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.QueryParameter;
+
+import javax.servlet.ServletException;
 
 
 public final class ParallelsDesktopCloud extends Cloud
@@ -51,11 +58,12 @@ public final class ParallelsDesktopCloud extends Cloud
 	private final String labelString;
 	private final String remoteFS;
 	private final boolean useConnectorAsBuilder;
+	private final int maxConcurrentVms;
 	private transient ParallelsDesktopConnectorSlave connectorSlave;
 
 	@DataBoundConstructor
 	public ParallelsDesktopCloud(String name, String labelString, String remoteFS, ComputerLauncher pdLauncher,
-			boolean useConnectorAsBuilder, List<ParallelsDesktopVM> vms)
+			boolean useConnectorAsBuilder, int maxConcurrentVms, List<ParallelsDesktopVM> vms)
 	{
 		super(name);
 		this.labelString = labelString;
@@ -65,6 +73,7 @@ public final class ParallelsDesktopCloud extends Cloud
 		else
 			this.vms = vms;
 		this.pdLauncher = pdLauncher;
+		this.maxConcurrentVms = maxConcurrentVms;
 		this.useConnectorAsBuilder = useConnectorAsBuilder;
 	}
 
@@ -166,6 +175,11 @@ public final class ParallelsDesktopCloud extends Cloud
 	{
 		return useConnectorAsBuilder;
 	}
+	
+	public int getMaxConcurrentVms()
+	{
+		return maxConcurrentVms;
+	}
 
 	@Extension
 	public static final class DescriptorImpl extends Descriptor<Cloud>
@@ -174,6 +188,19 @@ public final class ParallelsDesktopCloud extends Cloud
 		public String getDisplayName()
 		{
 			return "Parallels Desktop Cloud";
+		}
+		
+		public FormValidation doCheckMaxConcurrentVms(@QueryParameter String value) throws IOException, ServletException
+		{
+			try
+			{
+				Integer.parseInt(value);
+				return FormValidation.ok();
+			}
+			catch (NumberFormatException e)
+			{
+				return FormValidation.error("Not a number");
+			}
 		}
 	}
 }

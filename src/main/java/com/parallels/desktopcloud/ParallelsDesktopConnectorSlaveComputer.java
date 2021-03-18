@@ -57,10 +57,13 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 	private static final int TIMEOUT = 180;
 	private int numSlavesRunning = 0;
 	private VMResources hostResources;
+	
+	private final int maxConfiguredSlaves;
 
 	public ParallelsDesktopConnectorSlaveComputer(ParallelsDesktopConnectorSlave slave)
 	{
 		super(slave);
+		this.maxConfiguredSlaves = slave.getOwner().getMaxConcurrentVms();
 	}
 
 	private String getVmIPAddress(String vmId) throws Exception
@@ -280,6 +283,12 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 				if (!checkResourceLimitsForVm(vmId))
 				{
 					LOGGER.log(Level.SEVERE, "Not enough resources to start VM %s", vmId);
+					return false;
+				}
+				if (maxConfiguredSlaves != -1 && numSlavesRunning + 1 > maxConfiguredSlaves)
+				{
+					LOGGER.log(Level.WARNING, "Too many slaves currently running, " +
+													  "max configured running slave count: %d", maxConfiguredSlaves);
 					return false;
 				}
 				LOGGER.log(Level.SEVERE, "Starting virtual machine '%s'", vmId);

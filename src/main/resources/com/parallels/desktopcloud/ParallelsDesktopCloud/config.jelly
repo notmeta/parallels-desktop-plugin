@@ -37,6 +37,9 @@ THE SOFTWARE.
 		<f:entry title="${%Remote FS root}" field="remoteFS">
 			<f:textbox/>
 		</f:entry>
+		<f:entry title="${%Maximum concurrent running VMs}" field="maxConcurrentVms">
+            <f:textbox/>
+        </f:entry>
 		<f:entry name="useAsBuilder" title="${%Use host slave for build tasks}" field="useConnectorAsBuilder">
 			<f:checkbox/>
 		</f:entry>
