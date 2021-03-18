@@ -54,7 +54,7 @@ import org.apache.commons.validator.routines.InetAddressValidator;
 public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudComputer<ParallelsDesktopConnectorSlave>
 {
 	private static final ParallelsLogger LOGGER = ParallelsLogger.getLogger("PDConnectorSlaveComputer");
-	private int numSlavesToStop = 0;
+	private int numSlavesRunning = 0;
 	private VMResources hostResources;
 
 	public ParallelsDesktopConnectorSlaveComputer(ParallelsDesktopConnectorSlave slave)
@@ -287,7 +287,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 				forceGetChannel().call(command);
 			}
 			if (vm.getPostBuildCommand() != null)
-				++numSlavesToStop;
+				++numSlavesRunning;
 			vm.setProvisioned(true);
 			return true;
 		}
@@ -313,8 +313,8 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 			RunVmCallable command = new RunVmCallable(action, vm.getVmid());
 			String res = forceGetChannel().call(command);
 			LOGGER.log(Level.SEVERE, "Result: %s", res);
-			if (numSlavesToStop > 0)
-				--numSlavesToStop;
+			if (numSlavesRunning > 0)
+				--numSlavesRunning;
 			vm.setProvisioned(false);
 		}
 		catch (Exception ex)
@@ -332,7 +332,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 	{
 		if (isOffline())
 			return true;
-		return numSlavesToStop == 0;
+		return numSlavesRunning == 0;
 	}
 
 	private static final class PrlCtlFailedException extends Exception
