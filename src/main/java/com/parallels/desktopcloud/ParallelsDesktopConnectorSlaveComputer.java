@@ -54,6 +54,7 @@ import org.apache.commons.validator.routines.InetAddressValidator;
 public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudComputer<ParallelsDesktopConnectorSlave>
 {
 	private static final ParallelsLogger LOGGER = ParallelsLogger.getLogger("PDConnectorSlaveComputer");
+	private static final int TIMEOUT = 180;
 	private int numSlavesRunning = 0;
 	private VMResources hostResources;
 
@@ -64,7 +65,6 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 
 	private String getVmIPAddress(String vmId) throws Exception
 	{
-		int TIMEOUT = 180;
 		InetAddressValidator validator = InetAddressValidator.getInstance();
 		for (int i = 0; i < TIMEOUT; ++i)
 		{
