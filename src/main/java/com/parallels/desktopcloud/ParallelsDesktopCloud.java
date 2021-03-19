@@ -59,11 +59,13 @@ public final class ParallelsDesktopCloud extends Cloud
 	private final String remoteFS;
 	private final boolean useConnectorAsBuilder;
 	private final int maxConcurrentVms;
+	private final boolean useLinkedClones;
+	
 	private transient ParallelsDesktopConnectorSlave connectorSlave;
 
 	@DataBoundConstructor
 	public ParallelsDesktopCloud(String name, String labelString, String remoteFS, ComputerLauncher pdLauncher,
-			boolean useConnectorAsBuilder, int maxConcurrentVms, List<ParallelsDesktopVM> vms)
+			boolean useConnectorAsBuilder, int maxConcurrentVms, boolean useLinkedClones, List<ParallelsDesktopVM> vms)
 	{
 		super(name);
 		this.labelString = labelString;
@@ -74,6 +76,7 @@ public final class ParallelsDesktopCloud extends Cloud
 			this.vms = vms;
 		this.pdLauncher = pdLauncher;
 		this.maxConcurrentVms = maxConcurrentVms;
+		this.useLinkedClones = useLinkedClones;
 		this.useConnectorAsBuilder = useConnectorAsBuilder;
 	}
 
@@ -89,24 +92,26 @@ public final class ParallelsDesktopCloud extends Cloud
 		}
 		for (int i = 0; (i < vms.size()) && (excessWorkload > 0); i++)
 		{
-			final ParallelsDesktopVM vm = vms.get(i);
+			ParallelsDesktopVM vm = vms.get(i);
 			if (vm.isProvisioned())
 				continue;
 			if (!label.matches(Label.parse(vm.getLabels())))
 				continue;
-			if (!connector.startVM(vm))
+			vm = connector.startVM(vm);
+			if (vm == null)
 				continue;
-			final String vmId = vm.getVmid();
-			final String slaveName = name + " " + vmId;
+			final String slaveName = name + " " + vm.getVmid();
 			vm.setSlaveName(slaveName);
 			--excessWorkload;
+			
+			final ParallelsDesktopVM connectorVm = vm;
 			result.add(new NodeProvisioner.PlannedNode(slaveName,
 				Computer.threadPoolForRemoting.submit(new Callable<Node>()
 				{
 					@Override
 					public Node call() throws Exception
 					{
-						return connector.createSlaveOnVM(vm);
+						return connector.createSlaveOnVM(connectorVm);
 					}
 				}), 1));
 		}
@@ -179,6 +184,11 @@ public final class ParallelsDesktopCloud extends Cloud
 	public int getMaxConcurrentVms()
 	{
 		return maxConcurrentVms;
+	}
+	
+	public boolean getUseLinkedClones()
+	{
+		return useLinkedClones;
 	}
 
 	@Extension

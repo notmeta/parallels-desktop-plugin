@@ -59,11 +59,14 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 	private VMResources hostResources;
 	
 	private final int maxConfiguredSlaves;
+	private final boolean useLinkedClones;
 
 	public ParallelsDesktopConnectorSlaveComputer(ParallelsDesktopConnectorSlave slave)
 	{
 		super(slave);
+		
 		this.maxConfiguredSlaves = slave.getOwner().getMaxConcurrentVms();
+		this.useLinkedClones = slave.getOwner().getUseLinkedClones();
 	}
 
 	private String getVmIPAddress(String vmId) throws Exception
@@ -255,7 +258,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 		return n;
 	}
 
-	public boolean startVM(ParallelsDesktopVM vm)
+	public ParallelsDesktopVM startVM(ParallelsDesktopVM vm)
 	{
 		String vmId = vm.getVmid();
 		LOGGER.log(Level.SEVERE, "Looking for virtual machine '%s'...", vmId);
@@ -265,7 +268,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 			if (vmInfo == null)
 			{
 				LOGGER.log(Level.SEVERE, "Failed to start virtual machine '%s': no such VM", vmId);
-				return false;
+				return null;
 			}
 
 			String vmStatus = vmInfo.getString("State");
@@ -283,45 +286,66 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 				if (!checkResourceLimitsForVm(vmId))
 				{
 					LOGGER.log(Level.SEVERE, "Not enough resources to start VM %s", vmId);
-					return false;
+					return null;
 				}
 				if (maxConfiguredSlaves != -1 && numSlavesRunning + 1 > maxConfiguredSlaves)
 				{
 					LOGGER.log(Level.WARNING, "Too many slaves currently running, " +
 													  "max configured running slave count: %d", maxConfiguredSlaves);
-					return false;
+					return null;
 				}
 				LOGGER.log(Level.SEVERE, "Starting virtual machine '%s'", vmId);
+
+				if (useLinkedClones)
+				{
+					vm = createLinkedClone(vm);
+					vmId = vm.getVmid();
+				}
 				RunVmCallable command = new RunVmCallable("start", vmId);
 				forceGetChannel().call(command);
 			}
 			if (vm.getPostBuildCommand() != null)
 				++numSlavesRunning;
 			vm.setProvisioned(true);
-			return true;
+			return vm;
 		}
 		catch (Exception ex)
 		{
 			LOGGER.log(Level.SEVERE, "Error: %s\nFailed to start VM '%s'", ex, vmId);
 		}
 		stopVM(vm);
-		return false;
+		return null;
 	}
 
 	private void stopVM(ParallelsDesktopVM vm)
 	{
 		try
 		{
-			String action = vm.getPostBuildCommand();
-			if (action == null)
+			if (vm.isLinkedClone())
 			{
-				LOGGER.log(Level.SEVERE, "Keep running VM %s", vm.getVmid());
-				return;
+				LOGGER.log(Level.SEVERE, "Stopping linked clone '%s'", vm.getVmid());
+				RunVmCallable command = new RunVmCallable("stop", vm.getVmid(), "--kill");
+				String res = forceGetChannel().call(command);
+				LOGGER.log(Level.SEVERE, "Result: %s", res);
+				
+				LOGGER.log(Level.SEVERE, "Deleting linked clone '%s'", vm.getVmid());
+				command = new RunVmCallable("delete", vm.getVmid());
+				res = forceGetChannel().call(command);
+				LOGGER.log(Level.SEVERE, "Result: %s", res);
 			}
-			LOGGER.log(Level.SEVERE, "Post build action for '%s': %s", vm.getVmid(), action);
-			RunVmCallable command = new RunVmCallable(action, vm.getVmid());
-			String res = forceGetChannel().call(command);
-			LOGGER.log(Level.SEVERE, "Result: %s", res);
+			else
+			{
+				String action = vm.getPostBuildCommand();
+				if (action == null)
+				{
+					LOGGER.log(Level.SEVERE, "Keep running VM %s", vm.getVmid());
+					return;
+				}
+				LOGGER.log(Level.SEVERE, "Post build action for '%s': %s", vm.getVmid(), action);
+				RunVmCallable command = new RunVmCallable(action, vm.getVmid());
+				String res = forceGetChannel().call(command);
+				LOGGER.log(Level.SEVERE, "Result: %s", res);
+			}
 			if (numSlavesRunning > 0)
 				--numSlavesRunning;
 			vm.setProvisioned(false);
@@ -329,6 +353,26 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 		catch (Exception ex)
 		{
 			LOGGER.log(Level.SEVERE, "Error: %s", ex);
+		}
+	}
+	
+	private ParallelsDesktopVM createLinkedClone(ParallelsDesktopVM vm)
+	{
+		try
+		{
+			final ParallelsDesktopVM clone = vm.createLinkedClone();
+			
+			LOGGER.log(Level.SEVERE, "Creating linked clone for '%s'", clone.getParentVmid());
+			RunVmCallable command = new RunVmCallable("clone", clone.getParentVmid(), "--linked", "--name", clone.getVmid());
+			String res = forceGetChannel().call(command);
+			LOGGER.log(Level.SEVERE, "Result: %s", res);
+			
+			return clone;
+		}
+		catch (Exception ex)
+		{
+			LOGGER.log(Level.SEVERE, "Error: %s", ex);
+			return null;
 		}
 	}
 

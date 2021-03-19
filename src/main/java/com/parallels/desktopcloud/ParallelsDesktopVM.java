@@ -30,6 +30,8 @@ import hudson.model.Descriptor;
 import hudson.slaves.ComputerLauncher;
 import hudson.util.ListBoxModel;
 import java.lang.reflect.Field;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.logging.Level;
 import jenkins.model.Jenkins;
 import org.kohsuke.stapler.DataBoundConstructor;
@@ -63,7 +65,10 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	private transient boolean provisioned = false;
 	private PostBuildBehaviors postBuildBehavior;
 	private transient VMStates prevVmState;
-
+	
+	private String parentVmid;
+	private boolean isLinkedClone;
+	
 	@DataBoundConstructor
 	public ParallelsDesktopVM(String vmid, String labels, String remoteFS, ComputerLauncher launcher, String postBuildBehavior)
 	{
@@ -82,6 +87,17 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 		if (this.postBuildBehavior == null)
 			this.postBuildBehavior = PostBuildBehaviors.Suspend;
 		prevVmState = VMStates.Suspended;
+	}
+	
+	public ParallelsDesktopVM createLinkedClone()
+	{
+		final String instanceName = generateUniqueName();
+		final ParallelsDesktopVM linkedClone = new ParallelsDesktopVM(instanceName, this.labels, this.remoteFS, this.launcher, this.postBuildBehavior.name());
+		
+		linkedClone.isLinkedClone = true;
+		linkedClone.parentVmid = getVmid();
+		
+		return linkedClone;
 	}
 
 	public String getVmid()
@@ -102,6 +118,16 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	public ComputerLauncher getLauncher()
 	{
 		return launcher;
+	}
+	
+	public boolean isLinkedClone()
+	{
+		return isLinkedClone;
+	}
+	
+	public String getParentVmid()
+	{
+		return parentVmid;
 	}
 
 	public void setSlaveName(String slaveName)
@@ -217,6 +243,13 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 			LOGGER.log(Level.SEVERE, "Error: %s", ex);
 		}
 		return null;
+	}
+	
+	private String generateUniqueName()
+	{
+		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HHmmssddMMyyyy");
+		String dateString = simpleDateFormat.format(new Date());
+		return getVmid() + "_" + dateString;
 	}
 
 	@Override
