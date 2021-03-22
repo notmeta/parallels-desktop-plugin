@@ -93,13 +93,12 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 		if (this.postBuildBehavior == null)
 			this.postBuildBehavior = PostBuildBehaviors.Suspend;
 		prevVmState = VMStates.Suspended;
-		// readResolve();
 	}
 	
 	public ParallelsDesktopVM createLinkedClone()
 	{
 		final String instanceName = generateUniqueName();
-		final ParallelsDesktopVM linkedClone = new ParallelsDesktopVM(instanceName, this.labels, this.remoteFS, this.launcher, this.postBuildBehavior.name());
+		final ParallelsDesktopVM linkedClone = new ParallelsDesktopVM(instanceName, this.labels, this.remoteFS, this.launcher, this.postBuildBehavior.name(), this.retentionStrategy);
 		
 		linkedClone.isLinkedClone = true;
 		linkedClone.parentVmid = getVmid();
