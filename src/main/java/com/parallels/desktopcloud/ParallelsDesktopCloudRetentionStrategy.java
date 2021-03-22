@@ -54,7 +54,7 @@ public class ParallelsDesktopCloudRetentionStrategy extends RetentionStrategy<Pa
 		{
 			final long idleMillis = System.currentTimeMillis() - c.getIdleStartMilliseconds();
 			LOGGER.log(Level.SEVERE, "Check VM computer %s: idle=%b time=%d", c.getName(), c.isIdle(), idleMillis);
-			if (idleMillis > IDLE_TIMEOUT || c.getSlave().getVm().isLinkedClone())
+			if (idleMillis > IDLE_TIMEOUT)
 			{
 				try
 				{

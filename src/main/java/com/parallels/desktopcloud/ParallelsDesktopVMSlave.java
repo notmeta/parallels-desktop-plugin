@@ -76,11 +76,6 @@ public class ParallelsDesktopVMSlave extends AbstractCloudSlave implements Ephem
 		return this;
 	}
 
-	public ParallelsDesktopVM getVm()
-	{
-		return this.vm;
-	}
-
 	@Extension
 	public static final class DescriptorImpl extends SlaveDescriptor
 	{
