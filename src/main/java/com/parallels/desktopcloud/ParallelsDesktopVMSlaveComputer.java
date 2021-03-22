@@ -32,10 +32,13 @@ import java.util.logging.Level;
 public class ParallelsDesktopVMSlaveComputer extends AbstractCloudComputer<ParallelsDesktopVMSlave>
 {
 	private static final ParallelsLogger LOGGER = ParallelsLogger.getLogger("PDVMSlaveComputer");
+	
+	private final ParallelsDesktopVMSlave slave;
 
 	public ParallelsDesktopVMSlaveComputer(ParallelsDesktopVMSlave slave)
 	{
 		super(slave);
+		this.slave = slave;
 	}
 
 	@Override
@@ -50,5 +53,10 @@ public class ParallelsDesktopVMSlaveComputer extends AbstractCloudComputer<Paral
 		if (permission == CONFIGURE || permission == DISCONNECT || permission == CONNECT)
 			return false;
 		return super.hasPermission(permission);
+	}
+	
+	public ParallelsDesktopVMSlave getSlave()
+	{
+		return this.slave;
 	}
 }
