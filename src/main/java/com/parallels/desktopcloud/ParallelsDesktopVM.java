@@ -264,7 +264,7 @@ public class ParallelsDesktopVM implements Describable<ParallelsDesktopVM>
 	
 	private String generateUniqueName()
 	{
-		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HHmmssddMMyyyy");
+		SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HHmmssSSSddMM");
 		String dateString = simpleDateFormat.format(new Date());
 		return getVmid() + "_" + dateString;
 	}
