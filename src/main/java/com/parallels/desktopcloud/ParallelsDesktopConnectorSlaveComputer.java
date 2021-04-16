@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.lang.management.ManagementFactory;
 import javax.management.MBeanServer;
@@ -55,6 +56,8 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 {
 	private static final ParallelsLogger LOGGER = ParallelsLogger.getLogger("PDConnectorSlaveComputer");
 	private static final int TIMEOUT = 180;
+	private static final ReentrantLock startVmLock = new ReentrantLock();
+	
 	private int numSlavesRunning = 0;
 	private VMResources hostResources;
 	
@@ -260,8 +263,15 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 
 	public ParallelsDesktopVM startVM(ParallelsDesktopVM vm)
 	{
+		if (!startVmLock.tryLock())
+		{
+			LOGGER.log(Level.SEVERE, "Slave currently busy starting a previous VM");
+			return null;
+		}
+		
 		String vmId = vm.getVmid();
 		LOGGER.log(Level.SEVERE, "Looking for virtual machine '%s'...", vmId);
+		
 		try
 		{
 			JSONObject vmInfo = getVMInfo(vmId);
@@ -270,7 +280,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 				LOGGER.log(Level.SEVERE, "Failed to start virtual machine '%s': no such VM", vmId);
 				return null;
 			}
-
+			
 			String vmStatus = vmInfo.getString("State");
 			ParallelsDesktopVM.VMStates state = ParallelsDesktopVM.parseVMState(vmStatus);
 			if (state == null)
@@ -280,7 +290,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 			}
 			if (vm.getPostBuildBehaviorValue() == ParallelsDesktopVM.PostBuildBehaviors.ReturnPrevState)
 				vm.setPrevVMState(state);
-
+			
 			if (state != ParallelsDesktopVM.VMStates.Running)
 			{
 				if (!checkResourceLimitsForVm(vmId))
@@ -295,7 +305,7 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 					return null;
 				}
 				LOGGER.log(Level.SEVERE, "Starting virtual machine '%s'", vmId);
-
+				
 				if (useLinkedClones)
 				{
 					vm = createLinkedClone(vm);
@@ -312,6 +322,10 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 		catch (Exception ex)
 		{
 			LOGGER.log(Level.SEVERE, "Error: %s\nFailed to start VM '%s'", ex, vmId);
+		}
+		finally
+		{
+			startVmLock.unlock();
 		}
 		stopVM(vm);
 		return null;
