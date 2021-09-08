@@ -370,14 +370,40 @@ public class ParallelsDesktopConnectorSlaveComputer extends AbstractCloudCompute
 		}
 	}
 	
+	private String getCurrentSnapshotId(final String vmId)
+	{
+		try
+		{
+			LOGGER.log(Level.SEVERE, "Getting snapshot list for '%s'", vmId);
+			RunVmCallable command = new RunVmCallable("snapshot-list", vmId, "--json");
+			String callResult = forceGetChannel().call(command);
+			
+			JSONObject snapshots = (JSONObject) JSONSerializer.toJSON(callResult);
+			for (Object name : snapshots.names())
+			{
+				boolean current = snapshots.getJSONObject(name.toString()).getBoolean("current");
+				if (current)
+				{
+					return name.toString();
+				}
+			}
+		}
+		catch (Exception e)
+		{
+			LOGGER.log(Level.SEVERE, "Error: %s", e);
+		}
+		return null;
+	}
+	
 	private ParallelsDesktopVM createLinkedClone(ParallelsDesktopVM vm)
 	{
 		try
 		{
 			final ParallelsDesktopVM clone = vm.createLinkedClone();
+			final String currentSnapshotId = getCurrentSnapshotId(clone.getParentVmid());
 			
-			LOGGER.log(Level.SEVERE, "Creating linked clone for '%s'", clone.getParentVmid());
-			RunVmCallable command = new RunVmCallable("clone", clone.getParentVmid(), "--linked", "--name", clone.getVmid());
+			LOGGER.log(Level.SEVERE, "Creating linked clone for '%s' using snapshot '%s'", clone.getParentVmid(), currentSnapshotId);
+			RunVmCallable command = new RunVmCallable("clone", clone.getParentVmid(), "--linked", "--name", clone.getVmid(), "-i", currentSnapshotId);
 			String res = forceGetChannel().call(command);
 			LOGGER.log(Level.SEVERE, "Result: %s", res);
 			
